@@ -17,6 +17,8 @@ const createWindow = () => {
   // Edit the menu bar
   setMenuBar();
 
+  mainWindow.webContents.openDevTools();
+
   // Load the index.html of the app.
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
 };
@@ -47,13 +49,27 @@ app.on('activate', () => {
 function setMenuBar() {
   const template = [
     {
-      label: 'Filter',
+      label: 'File',
       submenu: [
         {
-          label: 'Hello',
-          accelerator: 'Shift+CmdOrCtrl+H',
+          label: 'New',
+          accelerator: 'CmdOrCtrl+N',
           click() {
-              console.log('Oh, hi there!')
+              console.log('new project');
+          }
+        },
+        {
+          label: 'Open',
+          accelerator: 'CmdOrCtrl+O',
+          click() {
+            console.log('open project');
+          }
+        },
+        {
+          label: 'Save',
+          accelerator: 'CmdOrCtrl+S',
+          click() {
+            console.log('save project');
           }
         }
       ]
