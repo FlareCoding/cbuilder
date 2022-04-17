@@ -75,3 +75,24 @@ body {
     padding: .75rem 1.5rem;
   }
 }
+
+.card-name-textbox {
+  padding: 5px;
+  font-family: "Inter var",ui-sans-serif,system-ui,-apple-system,system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji";
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+  border-width: 0px;
+  border-color: transparent;
+  background-color: #ffffff00;
+  color: azure;
+  border-style: hidden;
+  text-align: center;
+  border-radius: 0px;
+  box-shadow: 0px 0px 5px rgba(66,66,66,.0);
+  text-shadow: 0px 0px 5px rgba(66,66,66,.75);
+}
+
+.card-name-textbox {
+  outline:none;
+}
