@@ -17,7 +17,7 @@ const createWindow = () => {
   // Edit the menu bar
   setMenuBar();
 
-  mainWindow.webContents.openDevTools();
+  //mainWindow.webContents.openDevTools();
 
   // Load the index.html of the app.
   mainWindow.loadFile(path.join(__dirname, 'index.html'));

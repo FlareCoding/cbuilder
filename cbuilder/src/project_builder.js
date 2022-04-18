@@ -11,6 +11,7 @@ function addApplicationComponent() {
     var componentCardNameTextbox = document.createElement('input');
     componentCardNameTextbox.classList.add('card-name-textbox');
     componentCardNameTextbox.value = newComponentName;
+    componentCardNameTextbox.spellcheck = false;
     componentCardNameTextbox.addEventListener('click', function (e) {
         e.stopPropagation();
     });
