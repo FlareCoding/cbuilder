@@ -306,6 +306,11 @@ class CProject:
     # the project details and subsystems and
     # creating the physical project in the filesystem.
     def generate_project(self, target_dir) -> None:
+
+        # Check for existance of at least one module
+        if len(self.modules) < 1:
+            return            
+
         global g_project_name
 
         # Set the project name global
