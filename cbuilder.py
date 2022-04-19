@@ -71,7 +71,7 @@ class CClass:
         result = ''
 
         # Write the function comment if neccessary
-        if fn.description != None:
+        if fn.description != None and len(fn.description) > 0:
             result += '\t\t/*\n\t\t\t{}\n\t\t*/\n'.format(fn.description.replace('\n', '\n\t\t\t'))
 
         # Write the function declaration
@@ -444,9 +444,11 @@ def show_class_controls(console, cppclass: CClass):
                 fn.params = fn_params
 
                 if fn_type == 'pub':
-                    cppclass.public_functions.append(fn)
+                    if fn_name not in [f.name for f in cppclass.public_functions]:
+                        cppclass.public_functions.append(fn)
                 else:
-                    cppclass.private_functions.append(fn)
+                    if fn_name not in [f.name for f in cppclass.private_functions]:
+                        cppclass.private_functions.append(fn)
 
             # Remove function
             elif user_cmd == 2:
@@ -461,9 +463,11 @@ def show_class_controls(console, cppclass: CClass):
                 var_name = Prompt.ask('enter the variable type, name, and initial value in C++ syntax')
 
                 if var_type == 'pub':
-                    cppclass.public_variables.append(var_name)
+                    if var_name not in cppclass.public_variables:
+                        cppclass.public_variables.append(var_name)
                 else:
-                    cppclass.private_variables.append(var_name)
+                    if var_name not in cppclass.private_variables:
+                        cppclass.private_variables.append(var_name)
 
             # Remove variable
             elif user_cmd == 4:
@@ -513,7 +517,9 @@ def show_system_controls(console, system: CModule):
                 console.print('New class name', style='cyan', end='')
                 class_name = Prompt.ask('').replace(' ', '_')
                 class_name = re.sub(r'[^a-zA-Z0-9_]', '', class_name) # remove all the non-alphanumeric characters
-                system.classes.append(CClass(class_name))
+
+                if class_name not in [cppclass.name for cppclass in system.classes]:
+                    system.classes.append(CClass(class_name))
 
             # Remove class
             elif user_cmd == 3:
@@ -563,7 +569,9 @@ def show_module_controls(console, module: CModule):
                 console.print('New system name', style='cyan', end='')
                 system_name = Prompt.ask('').replace(' ', '_')
                 system_name = re.sub(r'[^a-zA-Z0-9_]', '', system_name) # remove all the non-alphanumeric characters
-                module.systems.append(CSystem(system_name))
+
+                if system_name not in [system.name for system in module.systems]:
+                    module.systems.append(CSystem(system_name))
 
             # Remove class
             elif user_cmd == 3:
@@ -615,7 +623,9 @@ def show_project_controls(console, project: CProject) -> None:
                 console.print('New module name', style='cyan', end='')
                 mod_name = Prompt.ask('').replace(' ', '_')
                 mod_name = re.sub(r'[^a-zA-Z0-9_]', '', mod_name) # remove all the non-alphanumeric characters
-                project.modules.append(CModule(mod_name))
+
+                if mod_name not in [mod.name for mod in project.modules]:
+                    project.modules.append(CModule(mod_name))
 
             # Remove module
             elif user_cmd == 3:
