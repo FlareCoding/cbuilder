@@ -22,7 +22,9 @@ Structure containing the name and the documentation for a C++ function.
 '''
 class CFunction:
     def __init__(self, name, description) -> None:
+        self.return_type = 'void'
         self.name = name
+        self.params = []
         self.description = description
 
 '''
@@ -37,7 +39,34 @@ class CClass:
         self.public_variables   = []
         self.private_variables  = []
 
-    def __get_header_function_declaration(self, fn) -> str:
+    # Remove the variable given its name
+    def remove_variable(self, name: str) -> None:
+        for var in self.public_variables:
+            var_name = var.split(' ')[1]
+            if var_name == name:
+                self.public_variables.remove(var)
+                return
+
+        for var in self.private_variables:
+            var_name = var.split(' ')[1]
+            if var_name == name:
+                self.private_variables.remove(var)
+                return
+
+    # Remove the function given its name
+    def remove_function(self, name: str) -> None:
+        for fn in self.public_functions:
+            if fn.name == name:
+                self.public_functions.remove(fn)
+                return
+
+        for fn in self.private_functions:
+            if fn.name == name:
+                self.private_functions.remove(fn)
+                return
+
+    # Generates the C++ function declaration signature
+    def __get_header_function_declaration(self, fn: CFunction) -> str:
         result = ''
 
         # Write the function comment if neccessary
@@ -45,7 +74,7 @@ class CClass:
             result += '\t\t/*\n\t\t\t{}\n\t\t*/\n'.format(fn.description.replace('\n', '\n\t\t\t'))
 
         # Write the function declaration
-        result += '\t\tvoid {}();\n'.format(fn.name)
+        result += '\t\t{} {}({});\n'.format(fn.return_type, fn.name, ', '.join(fn.params))
 
         # To make the spacing look good, if there was comment,
         # add a new line after the function declaration as well.
@@ -111,7 +140,6 @@ class CClass:
 
             # Namespace end
             f.write('}\n')
-
 
     # Generates a C++ source file (.cpp)
     def __generate_source_file(self) -> None:
@@ -304,20 +332,22 @@ def render_class_table(console, cppclass: CClass) -> None:
 
     for i in range(0, greatest_member_count):
         fn = ''
+        fn_type = ''
         if i < len(all_fns):
             fn = all_fns[i]
-            fn_type = 'public'
+            fn_type = '(public)'
             if i >= len(cppclass.public_functions):
-                fn_type = 'private'
+                fn_type = '(private)'
 
         var = ''
+        var_type = ''
         if i < len(all_vars):
             var = all_vars[i]
-            var_type = 'public'
+            var_type = '(public)'
             if i >= len(cppclass.public_variables):
-                var_type = 'private'
+                var_type = '(private)'
 
-        table.add_row('', '{} ({})'.format(fn, fn_type), '{} ({})'.format(var, var_type))
+        table.add_row('', '{} {}'.format(fn, fn_type), '{} {}'.format(var, var_type))
 
     console.print(table)
     console.print()
@@ -338,6 +368,54 @@ def show_class_controls(console, cppclass: CClass):
             user_cmd = int(Prompt.ask('Select option', choices=['1','2','3','4','5','6']))
             if user_cmd == 6: # return to project menu
                return
+
+            # Adding a function to the class
+            if user_cmd == 1:
+                fn_type = Prompt.ask('public or private?', choices=['pub','priv'], default='pub')
+                fn_return_type = Prompt.ask('return type', default='void')
+                fn_name = Prompt.ask('name')
+                fn_params = Prompt.ask('parameters (comma separated)', default='').replace(',\\s+', ',').split(',')
+                docs = Prompt.ask('documentation', default='')
+                
+                fn = CFunction(fn_name, docs)
+                fn.return_type = fn_return_type
+                fn.params = fn_params
+
+                if fn_type == 'pub':
+                    cppclass.public_functions.append(fn)
+                else:
+                    cppclass.private_functions.append(fn)
+
+            # Remove function
+            elif user_cmd == 2:
+                console.print('Enter function name', style='cyan', end='')
+                fn_name = Prompt.ask('').replace(' ', '_')
+                fn_name = re.sub(r'[^a-zA-Z0-9_]', '', fn_name) # remove all the non-alphanumeric characters
+                cppclass.remove_function(fn_name)
+
+            # Add variable
+            if user_cmd == 3:
+                var_type = Prompt.ask('public or private?', choices=['pub','priv'], default='pub')
+                var_name = Prompt.ask('enter the variable type, name, and initial value in C++ syntax')
+
+                if var_type == 'pub':
+                    cppclass.public_variables.append(var_name)
+                else:
+                    cppclass.private_variables.append(var_name)
+
+            # Remove variable
+            elif user_cmd == 4:
+                console.print('Enter variable name', style='cyan', end='')
+                var_name = Prompt.ask('').replace(' ', '_')
+                var_name = re.sub(r'[^a-zA-Z0-9_]', '', var_name) # remove all the non-alphanumeric characters
+                cppclass.remove_variable(var_name)
+
+            # Edit module name
+            elif user_cmd == 5:
+                console.print('Enter new class name', style='cyan', end='')
+                new_name = Prompt.ask('').replace(' ', '_')
+                new_name = re.sub(r'[^a-zA-Z0-9_]', '', new_name) # remove all the non-alphanumeric characters
+                cppclass.name = new_name
 
             clear_screen()
     except KeyboardInterrupt:
@@ -361,8 +439,9 @@ def show_module_controls(console, module: CModule):
 
             # Select a class
             if user_cmd == 1 and len(module.classes) > 0:
+                console.print('Enter class name', style='cyan', end='')
                 class_choices = [cppclass.name for cppclass in module.classes]
-                selected_class_name = Prompt.ask('Enter class name', choices=class_choices)
+                selected_class_name = Prompt.ask('', choices=class_choices)
                 
                 clear_screen()
                 show_class_controls(console, module.get_class(selected_class_name))
@@ -412,8 +491,9 @@ def show_project_controls(console, project: CProject) -> None:
 
             # Select module
             if user_cmd == 1 and len(project.modules) > 0:
+                console.print('Enter module name', style='cyan', end='')
                 module_choices = [mod.name for mod in project.modules]
-                selected_module_name = Prompt.ask('Enter module name', choices=module_choices)
+                selected_module_name = Prompt.ask('', choices=module_choices)
                 
                 clear_screen()
                 show_module_controls(console, project.get_module(selected_module_name))
