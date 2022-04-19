@@ -657,29 +657,6 @@ def main() -> None:
     project = CProject(Prompt.ask(''))
     clear_screen()
 
-    # client_app_class= CClass('client_app')
-    # client_app_class.public_functions.append(CFunction('render_app', 'Main rendering routine used to render the application'))
-    # client_app_class.public_functions.append(CFunction('render_overlay', 'Draws the 2D overlay over the main window'))
-    # client_app_class.public_variables.append('std::unique_ptr<ClientState> m_ClientState = nullptr')
-    # client_app_class.private_functions.append(CFunction('render_background_color', None))
-    # client_app_class.private_variables.append('Renderer* m_Renderer')
-    # client_app_class.private_variables.append('Window* m_Window')
-
-    # ui_module = CModule('ui')
-    # ui_module.classes.append(client_app_class)
-    # ui_module.classes.append(CClass('panels'))
-
-    # network_module = CModule('network')
-    # network_module.classes.append(CClass('Packets'))
-    # network_module.classes.append(CClass('NetworkManager'))
-
-    # utils_module = CModule('utils')
-    # utils_module.classes.append(CClass('Logger'))
-
-    # project.modules.append(ui_module)
-    # project.modules.append(network_module)
-    # project.modules.append(utils_module)
-
     show_project_controls(console, project)
 
 if __name__ == '__main__':
