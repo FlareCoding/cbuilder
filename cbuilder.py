@@ -16,6 +16,7 @@ PRAGMA_ONCE_DEFINITION = '#pragma once\n'
 
 g_project_name = None
 g_current_module = None
+g_current_system = None
 
 '''
 Structure containing the name and the documentation for a C++ function.
@@ -85,14 +86,14 @@ class CClass:
 
     # Generates a C++ header file (.h)
     def __generate_header_file(self) -> None:
-        global g_project_name, g_current_module
+        global g_project_name, g_current_module, g_current_system
 
         with open(self.name + '.h', 'w') as f:
             # Pragma + includes
             f.write(PRAGMA_ONCE_DEFINITION)
 
             # Namespace begin
-            f.write('\nnamespace {}::{}\n{{\n'.format(g_project_name, g_current_module))
+            f.write('\nnamespace {}::{}::{}\n{{\n'.format(g_project_name, g_current_module, g_current_system))
 
             # Class begin
             f.write('\tclass {}\n'.format(self.name))
@@ -149,7 +150,7 @@ class CClass:
             f.write('#include "{}"\n\n'.format(self.name + '.h'))
 
             # Namespace begin
-            f.write('namespace {}::{}\n{{\n'.format(g_project_name, g_current_module))
+            f.write('namespace {}::{}::{}\n{{\n'.format(g_project_name, g_current_module, g_current_system))
 
             # Namespace end
             f.write('}\n')
@@ -160,11 +161,11 @@ class CClass:
         self.__generate_source_file()
 
 '''
-CModule is essentially a C++ namespace. It encapsulates classes
-for a specific subsystem within a project.
+CSystem is a logical representation of a collection of classes
+that directly relate to a unique set of functionality.
 '''
-class CModule:
-    def __init__(self, name = 'module1') -> None:
+class CSystem:
+    def __init__(self, name = 'system1') -> None:
         self.name = name
         self.classes: list[CClass] = []
 
@@ -185,7 +186,56 @@ class CModule:
 
     # Creates the appropriate directory structure and
     # child C++ class header and source files on the disk.
-    def generate_cpp_source_files(self) -> None:
+    def generate_source_files(self) -> None:
+        global g_current_system
+
+        # Set the current module
+        g_current_system = self.name
+
+        # Create the directory for the module
+        os.mkdir(self.name)
+
+        # Enter the module directory
+        os.chdir(self.name)
+
+        # Iterate over every class in the module and
+        # call its function to generate source files.
+        for cppclass in self.classes:
+            cppclass.generate_class_files()
+
+        # Exit back from the module directory
+        os.chdir('..')
+
+        # Set the current module to None as we are done working with it
+        g_current_system = None
+
+'''
+CModule is essentially a C++ namespace. It encapsulates classes
+for a specific subsystem within a project.
+'''
+class CModule:
+    def __init__(self, name = 'module1') -> None:
+        self.name = name
+        self.systems: list[CSystem] = []
+
+    # Returns a class with the given name
+    def get_system(self, name) -> CSystem:
+        for system in self.systems:
+            if system.name == name:
+                return system
+
+        return None
+
+    # Removes a class with the given name
+    def remove_system(self, name) -> None:
+        for system in self.systems:
+            if system.name == name:
+                self.systems.remove(system)
+                break
+
+    # Creates the appropriate directory structure and
+    # child C++ class header and source files on the disk.
+    def generate_source_files(self) -> None:
         global g_current_module
 
         # Set the current module
@@ -199,8 +249,8 @@ class CModule:
 
         # Iterate over every class in the module and
         # call its function to generate source files.
-        for cppclass in self.classes:
-            cppclass.generate_class_files()
+        for system in self.systems:
+            system.generate_source_files()
 
         # Exit back from the module directory
         os.chdir('..')
@@ -245,7 +295,7 @@ class CProject:
     # Generates C++ source files for each module and class
     def __generate_source_files(self) -> None:
         for mod in self.modules:
-            mod.generate_cpp_source_files()
+            mod.generate_source_files()
 
     # Generates the CMakeLists.txt files
     # for the project directory and nested modules.
@@ -302,10 +352,22 @@ def render_project_table(console, project: CProject) -> None:
 def render_module_table(console, module: CModule) -> None:
     table = Table(show_header=True, header_style="bold cyan")
     table.add_column("Module Name", style="bright", min_width=16)
-    table.add_column("Classes",  min_width=26)
+    table.add_column("Systems",  min_width=26)
     table.add_row(module.name)
     
-    for cppclass in module.classes:
+    for system in module.systems:
+        table.add_row('', system.name)
+
+    console.print(table)
+    console.print()
+
+def render_system_table(console, system: CSystem) -> None:
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("System Name", style="bright", min_width=16)
+    table.add_column("Classes",  min_width=26)
+    table.add_row(system.name)
+    
+    for cppclass in system.classes:
         table.add_row('', cppclass.name)
 
     console.print(table)
@@ -362,7 +424,7 @@ def show_class_controls(console, cppclass: CClass):
             console.print('[3] Add variable')
             console.print('[4] Remove variable')
             console.print('[5] Edit class name')
-            console.print('[6] Return to module menu')
+            console.print('[6] Return to system menu')
             console.print()
 
             user_cmd = int(Prompt.ask('Select option', choices=['1','2','3','4','5','6']))
@@ -421,14 +483,64 @@ def show_class_controls(console, cppclass: CClass):
     except KeyboardInterrupt:
         return
 
+def show_system_controls(console, system: CModule):
+    try:
+        while True:
+            render_system_table(console, system)
+            
+            console.print('[1] Select class')
+            console.print('[2] Add class')
+            console.print('[3] Remove class')
+            console.print('[4] Edit module name')
+            console.print('[5] Return to module menu')
+            console.print()
+
+            user_cmd = int(Prompt.ask('Select option', choices=['1','2','3','4','5']))
+            if user_cmd == 5: # return to project menu
+               return
+
+            # Select a class
+            if user_cmd == 1 and len(system.classes) > 0:
+                console.print('Enter class name', style='cyan', end='')
+                class_choices = [cppclass.name for cppclass in system.classes]
+                selected_class_name = Prompt.ask('', choices=class_choices)
+                
+                clear_screen()
+                show_class_controls(console, system.get_class(selected_class_name))
+
+            # Add class
+            elif user_cmd == 2:
+                console.print('New class name', style='cyan', end='')
+                class_name = Prompt.ask('').replace(' ', '_')
+                class_name = re.sub(r'[^a-zA-Z0-9_]', '', class_name) # remove all the non-alphanumeric characters
+                system.classes.append(CClass(class_name))
+
+            # Remove class
+            elif user_cmd == 3:
+                console.print('Enter class name', style='cyan', end='')
+                class_name = Prompt.ask('').replace(' ', '_')
+                class_name = re.sub(r'[^a-zA-Z0-9_]', '', class_name) # remove all the non-alphanumeric characters
+                system.remove_class(class_name)
+
+            # Edit module name
+            elif user_cmd == 4:
+                console.print('Enter new system name', style='cyan', end='')
+                new_name = Prompt.ask('').replace(' ', '_')
+                new_name = re.sub(r'[^a-zA-Z0-9_]', '', new_name) # remove all the non-alphanumeric characters
+                system.name = new_name
+
+            clear_screen()
+    except KeyboardInterrupt:
+        return
+
 def show_module_controls(console, module: CModule):
     try:
         while True:
             render_module_table(console, module)
             
-            console.print('[1] Select class')
-            console.print('[2] Add class')
-            console.print('[3] Remove class')
+            console.print('[1] Select system')
+            console.print('[2] Add system')
+            console.print('[3] Remove system')
             console.print('[4] Edit module name')
             console.print('[5] Return to project menu')
             console.print()
@@ -438,27 +550,27 @@ def show_module_controls(console, module: CModule):
                return
 
             # Select a class
-            if user_cmd == 1 and len(module.classes) > 0:
-                console.print('Enter class name', style='cyan', end='')
-                class_choices = [cppclass.name for cppclass in module.classes]
-                selected_class_name = Prompt.ask('', choices=class_choices)
+            if user_cmd == 1 and len(module.systems) > 0:
+                console.print('Enter system name', style='cyan', end='')
+                class_choices = [system.name for system in module.systems]
+                selected_system_name = Prompt.ask('', choices=class_choices)
                 
                 clear_screen()
-                show_class_controls(console, module.get_class(selected_class_name))
+                show_system_controls(console, module.get_system(selected_system_name))
 
             # Add class
             elif user_cmd == 2:
-                console.print('New class name', style='cyan', end='')
-                class_name = Prompt.ask('').replace(' ', '_')
-                class_name = re.sub(r'[^a-zA-Z0-9_]', '', class_name) # remove all the non-alphanumeric characters
-                module.classes.append(CClass(class_name))
+                console.print('New system name', style='cyan', end='')
+                system_name = Prompt.ask('').replace(' ', '_')
+                system_name = re.sub(r'[^a-zA-Z0-9_]', '', system_name) # remove all the non-alphanumeric characters
+                module.systems.append(CSystem(system_name))
 
             # Remove class
             elif user_cmd == 3:
-                console.print('Enter class name', style='cyan', end='')
-                class_name = Prompt.ask('').replace(' ', '_')
-                class_name = re.sub(r'[^a-zA-Z0-9_]', '', class_name) # remove all the non-alphanumeric characters
-                module.remove_class(class_name)
+                console.print('Enter system name', style='cyan', end='')
+                system_name = Prompt.ask('').replace(' ', '_')
+                system_name = re.sub(r'[^a-zA-Z0-9_]', '', system_name) # remove all the non-alphanumeric characters
+                module.remove_system(system_name)
 
             # Edit module name
             elif user_cmd == 4:
@@ -519,6 +631,13 @@ def show_project_controls(console, project: CProject) -> None:
                 new_name = re.sub(r'[^a-zA-Z0-9_]', '', new_name) # remove all the non-alphanumeric characters
                 project.name = new_name
 
+            # Generate the project
+            elif user_cmd == 5:
+                console.print('Enter target directory', style='cyan', end='')
+                target_dir = Prompt.ask('').replace(' ', '_')
+
+                project.generate_project(target_dir)
+
             clear_screen()
 
         except KeyboardInterrupt:
@@ -538,28 +657,28 @@ def main() -> None:
     project = CProject(Prompt.ask(''))
     clear_screen()
 
-    client_app_class= CClass('client_app')
-    client_app_class.public_functions.append(CFunction('render_app', 'Main rendering routine used to render the application'))
-    client_app_class.public_functions.append(CFunction('render_overlay', 'Draws the 2D overlay over the main window'))
-    client_app_class.public_variables.append('std::unique_ptr<ClientState> m_ClientState = nullptr')
-    client_app_class.private_functions.append(CFunction('render_background_color', None))
-    client_app_class.private_variables.append('Renderer* m_Renderer')
-    client_app_class.private_variables.append('Window* m_Window')
+    # client_app_class= CClass('client_app')
+    # client_app_class.public_functions.append(CFunction('render_app', 'Main rendering routine used to render the application'))
+    # client_app_class.public_functions.append(CFunction('render_overlay', 'Draws the 2D overlay over the main window'))
+    # client_app_class.public_variables.append('std::unique_ptr<ClientState> m_ClientState = nullptr')
+    # client_app_class.private_functions.append(CFunction('render_background_color', None))
+    # client_app_class.private_variables.append('Renderer* m_Renderer')
+    # client_app_class.private_variables.append('Window* m_Window')
 
-    ui_module = CModule('ui')
-    ui_module.classes.append(client_app_class)
-    ui_module.classes.append(CClass('panels'))
+    # ui_module = CModule('ui')
+    # ui_module.classes.append(client_app_class)
+    # ui_module.classes.append(CClass('panels'))
 
-    network_module = CModule('network')
-    network_module.classes.append(CClass('Packets'))
-    network_module.classes.append(CClass('NetworkManager'))
+    # network_module = CModule('network')
+    # network_module.classes.append(CClass('Packets'))
+    # network_module.classes.append(CClass('NetworkManager'))
 
-    utils_module = CModule('utils')
-    utils_module.classes.append(CClass('Logger'))
+    # utils_module = CModule('utils')
+    # utils_module.classes.append(CClass('Logger'))
 
-    project.modules.append(ui_module)
-    project.modules.append(network_module)
-    project.modules.append(utils_module)
+    # project.modules.append(ui_module)
+    # project.modules.append(network_module)
+    # project.modules.append(utils_module)
 
     show_project_controls(console, project)
 
