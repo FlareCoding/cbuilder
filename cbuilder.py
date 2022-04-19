@@ -427,6 +427,9 @@ def show_class_controls(console, cppclass: CClass):
             console.print('[6] Return to system menu')
             console.print()
 
+            combined_functions_list = cppclass.public_functions + cppclass.private_functions
+            combined_variables_list = cppclass.public_variables + cppclass.private_variables
+
             user_cmd = int(Prompt.ask('Select option', choices=['1','2','3','4','5','6']))
             if user_cmd == 6: # return to project menu
                return
@@ -443,18 +446,19 @@ def show_class_controls(console, cppclass: CClass):
                 fn.return_type = fn_return_type
                 fn.params = fn_params
 
+                combined_functions_list = cppclass.public_functions + cppclass.private_functions
+
                 if fn_type == 'pub':
-                    if fn_name not in [f.name for f in cppclass.public_functions]:
+                    if fn_name not in [f.name for f in combined_functions_list] and len(fn_name) > 0:
                         cppclass.public_functions.append(fn)
                 else:
-                    if fn_name not in [f.name for f in cppclass.private_functions]:
+                    if fn_name not in [f.name for f in combined_functions_list] and len(fn_name) > 0:
                         cppclass.private_functions.append(fn)
 
             # Remove function
-            elif user_cmd == 2:
+            elif user_cmd == 2 and len(combined_functions_list) > 0:
                 console.print('Enter function name', style='cyan', end='')
-                fn_name = Prompt.ask('').replace(' ', '_')
-                fn_name = re.sub(r'[^a-zA-Z0-9_]', '', fn_name) # remove all the non-alphanumeric characters
+                fn_name = Prompt.ask('', choices=[fn.name for fn in combined_functions_list])
                 cppclass.remove_function(fn_name)
 
             # Add variable
@@ -463,17 +467,16 @@ def show_class_controls(console, cppclass: CClass):
                 var_name = Prompt.ask('enter the variable type, name, and initial value in C++ syntax')
 
                 if var_type == 'pub':
-                    if var_name not in cppclass.public_variables:
+                    if var_name not in list(cppclass.public_variables + cppclass.private_variables) and len(var_name) > 0:
                         cppclass.public_variables.append(var_name)
                 else:
-                    if var_name not in cppclass.private_variables:
+                    if var_name not in list(cppclass.public_variables + cppclass.private_variables) and len(var_name) > 0:
                         cppclass.private_variables.append(var_name)
 
             # Remove variable
-            elif user_cmd == 4:
+            elif user_cmd == 4 and len(combined_variables_list) > 0:
                 console.print('Enter variable name', style='cyan', end='')
-                var_name = Prompt.ask('').replace(' ', '_')
-                var_name = re.sub(r'[^a-zA-Z0-9_]', '', var_name) # remove all the non-alphanumeric characters
+                var_name = Prompt.ask('', choices=[var.split()[1] for var in combined_variables_list])
                 cppclass.remove_variable(var_name)
 
             # Edit module name
@@ -518,14 +521,13 @@ def show_system_controls(console, system: CModule):
                 class_name = Prompt.ask('').replace(' ', '_')
                 class_name = re.sub(r'[^a-zA-Z0-9_]', '', class_name) # remove all the non-alphanumeric characters
 
-                if class_name not in [cppclass.name for cppclass in system.classes]:
+                if class_name not in [cppclass.name for cppclass in system.classes] and len(class_name) > 0:
                     system.classes.append(CClass(class_name))
 
             # Remove class
-            elif user_cmd == 3:
+            elif user_cmd == 3 and len(system.classes) > 0:
                 console.print('Enter class name', style='cyan', end='')
-                class_name = Prompt.ask('').replace(' ', '_')
-                class_name = re.sub(r'[^a-zA-Z0-9_]', '', class_name) # remove all the non-alphanumeric characters
+                class_name = Prompt.ask('', choices=[cppclass.name for cppclass in system.classes])
                 system.remove_class(class_name)
 
             # Edit module name
@@ -570,14 +572,13 @@ def show_module_controls(console, module: CModule):
                 system_name = Prompt.ask('').replace(' ', '_')
                 system_name = re.sub(r'[^a-zA-Z0-9_]', '', system_name) # remove all the non-alphanumeric characters
 
-                if system_name not in [system.name for system in module.systems]:
+                if system_name not in [system.name for system in module.systems] and len(system_name) > 0:
                     module.systems.append(CSystem(system_name))
 
             # Remove class
-            elif user_cmd == 3:
+            elif user_cmd == 3 and len(module.systems) > 0:
                 console.print('Enter system name', style='cyan', end='')
-                system_name = Prompt.ask('').replace(' ', '_')
-                system_name = re.sub(r'[^a-zA-Z0-9_]', '', system_name) # remove all the non-alphanumeric characters
+                system_name = Prompt.ask('', choices=[system.name for system in module.systems])
                 module.remove_system(system_name)
 
             # Edit module name
@@ -624,14 +625,13 @@ def show_project_controls(console, project: CProject) -> None:
                 mod_name = Prompt.ask('').replace(' ', '_')
                 mod_name = re.sub(r'[^a-zA-Z0-9_]', '', mod_name) # remove all the non-alphanumeric characters
 
-                if mod_name not in [mod.name for mod in project.modules]:
+                if mod_name not in [mod.name for mod in project.modules] and len(mod_name) > 0:
                     project.modules.append(CModule(mod_name))
 
             # Remove module
-            elif user_cmd == 3:
+            elif user_cmd == 3 and len(project.modules) > 0:
                 console.print('Enter module name', style='cyan', end='')
-                mod_name = Prompt.ask('').replace(' ', '_')
-                mod_name = re.sub(r'[^a-zA-Z0-9_]', '', mod_name) # remove all the non-alphanumeric characters
+                mod_name = Prompt.ask('', choices=[mod.name for mod in project.modules])
                 project.remove_module(mod_name)
 
             # Edit project name
