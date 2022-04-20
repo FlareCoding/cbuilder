@@ -14,9 +14,29 @@ def clear_screen():
 
 PRAGMA_ONCE_DEFINITION = '#pragma once\n'
 
+CMAKE_HEADER_DEFINITION = '''cmake_minimum_required(VERSION 3.0)
+set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+if(UNIX AND NOT APPLE)
+    set(LINUX TRUE)
+endif()
+
+if (APPLE)
+    set(CMAKE_MACOSX_RPATH OFF)
+endif()
+
+add_definitions(-DUNICODE -D_UNICODE)
+
+'''
+
 g_project_name = None
 g_current_module = None
 g_current_system = None
+g_current_cmake_dir = None
 
 '''
 Structure containing the name and the documentation for a C++ function.
@@ -195,7 +215,7 @@ class CSystem:
         # Create the directory for the module
         os.mkdir(self.name)
 
-        # Enter the module directory
+        # Enter the system directory
         os.chdir(self.name)
 
         # Iterate over every class in the module and
@@ -208,6 +228,36 @@ class CSystem:
 
         # Set the current module to None as we are done working with it
         g_current_system = None
+
+    # Creates a CMakeLists.txt file that groups together and exposes
+    # the contained class files to the parent module CMakeLists.
+    def generate_cmake_file(self) -> None:
+        global g_current_system
+        g_current_system = self.name
+
+        # Enter the system directory
+        os.chdir(self.name)
+
+        with open('CMakeLists.txt', 'w') as f:
+
+            # Create a definition for header files
+            f.write('set(\n\t{}_HEADERS\n\n'.format(self.name))
+
+            for cppclass in self.classes:
+                f.write('\t{}/{}/{}.h\n'.format(g_current_module, g_current_system, cppclass.name))
+
+            f.write('\n\tPARENT_SCOPE\n)\n\n')
+
+            # Create a definition for source files
+            f.write('set(\n\t{}_SOURCES\n\n'.format(self.name))
+
+            for cppclass in self.classes:
+                f.write('\t{}/{}/{}.cpp\n'.format(g_current_module, g_current_system, cppclass.name))
+
+            f.write('\n\tPARENT_SCOPE\n)\n\n')
+
+        # Return to parent module directory
+        os.chdir('..')
 
 '''
 CModule is essentially a C++ namespace. It encapsulates classes
@@ -258,6 +308,20 @@ class CModule:
         # Set the current module to None as we are done working with it
         g_current_module = None
 
+    # Creates a CMakeLists.txt files for each system within the module.
+    def generate_cmake_files(self) -> None:
+        global g_current_module
+        g_current_module = self.name
+
+        # Enter the module directory
+        os.chdir(self.name)
+
+        for system in self.systems:
+            system.generate_cmake_file()
+
+        # Return to parent project directory
+        os.chdir('..')
+
 '''
 The main class that holds all the information about the project
 on the highest level, i.e. which modules and subsystems exist within the project,
@@ -298,9 +362,17 @@ class CProject:
             mod.generate_source_files()
 
     # Generates the CMakeLists.txt files
-    # for the project directory and nested modules.
-    def __generate_cmake_file(self) -> None:
-        pass
+    # for the project directory and contained modules.
+    def __generate_cmake_files(self) -> None:
+        for mod in self.modules:
+            mod.generate_cmake_files()
+
+        with open('CMakeLists.txt', 'w') as f:
+            # CMake header
+            f.write(CMAKE_HEADER_DEFINITION)
+
+            # Project declaration
+            f.write('project({})'.format(self.name))
 
     # Primary function for processing all
     # the project details and subsystems and
@@ -340,7 +412,7 @@ class CProject:
         self.__generate_source_files()
 
         # Create required CMake files
-        self.__generate_cmake_file()
+        self.__generate_cmake_files()
 
 def render_project_table(console, project: CProject) -> None:
     table = Table(show_header=True, header_style="bold cyan")
