@@ -14,6 +14,17 @@ def clear_screen():
 
 PRAGMA_ONCE_DEFINITION = '#pragma once\n'
 
+DEFAULT_MAIN_FILE_SOURCE = '''#include <iostream>
+
+using namespace {}; // project namespace
+
+int main()
+{{
+    std::cout << "Hello World!\\n";
+    return 0;
+}}
+'''
+
 CMAKE_HEADER_DEFINITION = '''cmake_minimum_required(VERSION 3.0)
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 
@@ -99,14 +110,27 @@ class CClass:
 
         # To make the spacing look good, if there was comment,
         # add a new line after the function declaration as well.
-        if fn.description != None:
+        if fn.description != None and len(fn.description) > 0:
             result += '\n'
 
         return result
 
+    # Returns the function's signature as string
+    def __get_function_signature(self, fn: CFunction) -> str:
+        return '{} {}::{}({})'.format(fn.return_type, self.name, fn.name, ', '.join(fn.params))
+
+    # Returns the function's signature
+    # with curly braces defining the body.
+    def __get_function_definition(self, fn: CFunction) -> str:
+        return '\t{}\n\t{{\n\t}}\n'.format(self.__get_function_signature(fn))
+
     # Generates a C++ header file (.h)
     def __generate_header_file(self) -> None:
         global g_project_name, g_current_module, g_current_system
+
+        # Check to make sure the file doesn't exist already
+        if os.path.exists('{}.h'.format(self.name)):
+            return
 
         with open(self.name + '.h', 'w') as f:
             # Pragma + includes
@@ -141,7 +165,7 @@ class CClass:
                 f.write('\n')
                 f.write('\tprivate:\n')
 
-                for fn in self.public_functions:
+                for fn in self.private_functions:
                     code = self.__get_header_function_declaration(fn)
                     f.write(code)
 
@@ -150,7 +174,7 @@ class CClass:
                 f.write('\n')
                 f.write('\tprivate:\n')
                 
-                for var in self.public_variables:
+                for var in self.private_variables:
                     f.write('\t\t{};\n'.format(var))
 
             # Private functions
@@ -167,10 +191,17 @@ class CClass:
         global g_project_name, g_current_module
 
         with open(self.name + '.cpp', 'w') as f:
-            f.write('#include "{}"\n\n'.format(self.name + '.h'))
+            f.write('#include "{}.h"\n\n'.format(self.name))
 
             # Namespace begin
             f.write('namespace {}::{}::{}\n{{\n'.format(g_project_name, g_current_module, g_current_system))
+
+            # Create a list of all functions
+            all_functions = self.public_functions + self.private_functions
+
+            # Generate function definitions
+            for fn in all_functions:
+                f.write('{}\n'.format(self.__get_function_definition(fn)))
 
             # Namespace end
             f.write('}\n')
@@ -372,7 +403,40 @@ class CProject:
             f.write(CMAKE_HEADER_DEFINITION)
 
             # Project declaration
-            f.write('project({})'.format(self.name))
+            f.write('project({})\n'.format(self.name))
+
+            # Target definition
+            f.write('set(TARGET_NAME {})\n\n'.format(self.name))
+
+            # Include directories
+            f.write('include_directories(\n')
+            for mod in self.modules:
+                f.write('\t"{}"\n'.format(mod.name))
+
+            f.write(')\n\n')                
+
+            # Add appropriate subdirectories and
+            # keep track of the headers/sources to add.
+            headers_and_sources = []
+
+            for mod in self.modules:
+                for system in mod.systems:
+                    f.write('add_subdirectory({}/{})\n'.format(mod.name, system.name))
+                    headers_and_sources.append('${{{}_HEADERS}}'.format(system.name))
+                    headers_and_sources.append('${{{}_SOURCES}}'.format(system.name))
+
+            # Gotta keep the spacing clean
+            f.write('\n')
+
+            # Create an executable target
+            f.write('add_executable(\n\t${TARGET_NAME}\n\n')
+
+            # Add headers and sources to the executable
+            for item in headers_and_sources:
+                f.write('\t{}\n'.format(item))
+
+            # Add the main source file
+            f.write('\n\tmain.cpp\n)\n\n')
 
     # Primary function for processing all
     # the project details and subsystems and
@@ -408,11 +472,18 @@ class CProject:
         os.mkdir(self.name)
         os.chdir(self.name)
 
+        # Generate the main.cpp file
+        with open('main.cpp', 'w') as f:
+            f.write(DEFAULT_MAIN_FILE_SOURCE.format(self.name))
+
         # Generate project source files on the disk
         self.__generate_source_files()
 
         # Create required CMake files
         self.__generate_cmake_files()
+
+        # Move back up to the parent directory (target dir)
+        os.chdir(target_dir)
 
 def render_project_table(console, project: CProject) -> None:
     table = Table(show_header=True, header_style="bold cyan")
