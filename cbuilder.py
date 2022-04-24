@@ -37,7 +37,15 @@ def print_progress_bar(iteration, total, prefix = '', suffix = '', decimals = 1,
 
 # Cross-platform way to download files from the web
 def download_web_file(filename: str, url: str, verbose = False) -> None:
+    # Default: unix
     output_redirection = '> /dev/null 2>&1'
+
+    # Special case for windows
+    if os.name == 'nt':
+        output_redirection = '2> nul'
+
+    # If verbose flag is set, no
+    # output redirection should happen.
     if verbose:
         output_redirection = ''
 
@@ -54,13 +62,15 @@ IMGUI_REQUIRED_FILES = [
     ('imgui_draw.cpp', 'https://raw.githubusercontent.com/ocornut/imgui/docking/imgui_draw.cpp'),
     ('imgui_tables.cpp', 'https://raw.githubusercontent.com/ocornut/imgui/docking/imgui_tables.cpp'),
     ('imgui_widgets.cpp', 'https://raw.githubusercontent.com/ocornut/imgui/docking/imgui_widgets.cpp'),
+    ('imgui_impl_win32.h', 'https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_win32.h'),
+    ('imgui_impl_win32.cpp', 'https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_win32.cpp'),
     ('imgui_impl_dx11.h', 'https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_dx11.h'),
     ('imgui_impl_dx11.cpp', 'https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_dx11.cpp'),
     ('imgui_impl_glfw.h', 'https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_glfw.h'),
     ('imgui_impl_glfw.cpp', 'https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_glfw.cpp'),
     ('imgui_impl_opengl3.h', 'https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_opengl3.h'),
     ('imgui_impl_opengl3.cpp', 'https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_opengl3.cpp'),
-    ('imgui_impl_opengl3_loader.h', 'https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_opengl3_loader.h'),
+    ('imgui_impl_opengl3_loader.h', 'https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_opengl3_loader.h')
 ]
 
 GLFW3_REQUIRED_FILES = [
@@ -68,7 +78,9 @@ GLFW3_REQUIRED_FILES = [
 ]
 
 RESOURCE_REQUIRED_FILES = [
-    ('app-icon.icns', 'https://raw.githubusercontent.com/FlareCoding/cbuilder/master/app-icon.icns')
+    ('app-icon.icns', 'https://raw.githubusercontent.com/FlareCoding/cbuilder/master/app-icon.icns'),
+    ('app-icon.ico', 'https://raw.githubusercontent.com/FlareCoding/cbuilder/master/app-icon.ico'),
+    ('app-icon.rc', 'https://raw.githubusercontent.com/FlareCoding/cbuilder/master/app-icon.rc')
 ]
 
 PRAGMA_ONCE_DEFINITION = '#pragma once\n'
@@ -210,9 +222,9 @@ int main(int, char**)
 '''
 
 GUI_MAIN_CPP_WINDOWS = '''#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
-#include <imgui/imgui.h>
-#include <imgui/imgui_impl_win32.h>
-#include <imgui/imgui_impl_dx11.h>
+#include <client/ui/imgui/imgui.h>
+#include <client/ui/imgui/imgui_impl_win32.h>
+#include <client/ui/imgui/imgui_impl_dx11.h>
 #include <d3d11.h>
 #include <tchar.h>
 #include <memory>
@@ -433,7 +445,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DpiEnableScaleViewports)
         {{
             //const int dpi = HIWORD(wParam);
-            //printf("WM_DPICHANGED to %d (%.0f%%)\n", dpi, (float)dpi / 96.0f * 100.0f);
+            //printf("WM_DPICHANGED to %d (%.0f%%)\\n", dpi, (float)dpi / 96.0f * 100.0f);
             const RECT* suggested_rect = (RECT*)lParam;
             ::SetWindowPos(hWnd, NULL, suggested_rect->left, suggested_rect->top, suggested_rect->right - suggested_rect->left, suggested_rect->bottom - suggested_rect->top, SWP_NOZORDER | SWP_NOACTIVATE);
         }}
@@ -865,6 +877,7 @@ else()
     set(
         IMGUI_BACKEND_FILES
         
+        client/ui/imgui/imgui_impl_win32.cpp
         client/ui/imgui/imgui_impl_dx11.cpp
     )
 endif()
@@ -904,8 +917,15 @@ endif()
     set_source_files_properties(${APP_ICON_PATH} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 
     set(PLATFORM_BUNDLING MACOSX_BUNDLE ${APP_ICON_PATH})
+
+elseif(MSVC)
+    set(APP_ICON_DIR ${CMAKE_CURRENT_SOURCE_DIR}/resources)
+    set(APP_ICON_PATH ${APP_ICON_DIR}/app-icon.rc)
+    set(PLATFORM_BUNDLING ${APP_ICON_DIR} ${APP_ICON_PATH})
+
 else()
     set(PLATFORM_BUNDLING )
+
 endif()
 
 ''')
@@ -949,7 +969,9 @@ endif()
         MACOSX_BUNDLE_BUNDLE_VERSION "0.1"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "0.1"
     )
-endif(APPLE)
+elseif(MSVC)
+    target_link_libraries(${TARGET_NAME} d3d11.lib)
+endif()
 ''')
 
     # Sets up the imgui directory folder
