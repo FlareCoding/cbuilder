@@ -4,13 +4,72 @@ from rich.console import Console
 from rich.prompt import Prompt, Confirm
 from rich.table import Table
 
-def clear_screen(): 
+# Cross-platform way to clear the console screen
+def clear_screen() -> None: 
     # Windows 
     if os.name == 'nt': 
         _ = os.system('cls') 
     # Unix/Posix 
     else: 
         _ = os.system('clear') 
+
+# https://stackoverflow.com/questions/3173320/text-progress-bar-in-terminal-with-block-characters
+def print_progress_bar(iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r") -> None:
+    """
+    Call in a loop to create terminal progress bar
+    @params:
+        iteration   - Required  : current iteration (Int)
+        total       - Required  : total iterations (Int)
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        decimals    - Optional  : positive number of decimals in percent complete (Int)
+        length      - Optional  : character length of bar (Int)
+        fill        - Optional  : bar fill character (Str)
+        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
+    """
+    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+    filledLength = int(length * iteration // total)
+    bar = fill * filledLength + '-' * (length - filledLength)
+    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end = printEnd)
+    
+    if iteration == total: 
+        print()
+
+# Cross-platform way to download files from the web
+def download_web_file(filename: str, url: str, verbose = False) -> None:
+    output_redirection = '> /dev/null 2>&1'
+    if verbose:
+        output_redirection = ''
+
+    os.system('curl -o {} {} {}'.format(filename, url, output_redirection))
+
+IMGUI_REQUIRED_FILES = [
+    ('imgui.h', 'https://raw.githubusercontent.com/ocornut/imgui/docking/imgui.h'),
+    ('imgui.cpp', 'https://raw.githubusercontent.com/ocornut/imgui/docking/imgui.cpp'),
+    ('imconfig.h', 'https://raw.githubusercontent.com/ocornut/imgui/docking/imconfig.h'),
+    ('imgui_internal.h', 'https://raw.githubusercontent.com/ocornut/imgui/docking/imgui_internal.h'),
+    ('imstb_rectpack.h', 'https://raw.githubusercontent.com/ocornut/imgui/docking/imstb_rectpack.h'),
+    ('imstb_textedit.h', 'https://raw.githubusercontent.com/ocornut/imgui/docking/imstb_textedit.h'),
+    ('imstb_truetype.h', 'https://raw.githubusercontent.com/ocornut/imgui/docking/imstb_truetype.h'),
+    ('imgui_draw.cpp', 'https://raw.githubusercontent.com/ocornut/imgui/docking/imgui_draw.cpp'),
+    ('imgui_tables.cpp', 'https://raw.githubusercontent.com/ocornut/imgui/docking/imgui_tables.cpp'),
+    ('imgui_widgets.cpp', 'https://raw.githubusercontent.com/ocornut/imgui/docking/imgui_widgets.cpp'),
+    ('imgui_impl_dx11.h', 'https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_dx11.h'),
+    ('imgui_impl_dx11.cpp', 'https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_dx11.cpp'),
+    ('imgui_impl_glfw.h', 'https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_glfw.h'),
+    ('imgui_impl_glfw.cpp', 'https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_glfw.cpp'),
+    ('imgui_impl_opengl3.h', 'https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_opengl3.h'),
+    ('imgui_impl_opengl3.cpp', 'https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_opengl3.cpp'),
+    ('imgui_impl_opengl3_loader.h', 'https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_opengl3_loader.h'),
+]
+
+GLFW3_REQUIRED_FILES = [
+    ('glfw3.h', 'https://raw.githubusercontent.com/glfw/glfw/master/include/GLFW/glfw3.h')
+]
+
+RESOURCE_REQUIRED_FILES = [
+    ('app-icon.icns', 'https://raw.githubusercontent.com/FlareCoding/cbuilder/master/app-icon.icns')
+]
 
 PRAGMA_ONCE_DEFINITION = '#pragma once\n'
 
@@ -904,23 +963,18 @@ endif(APPLE)
 
         # Download the imgui files
         print('Downloading ImGui files...')
-        os.system('curl -o imgui.h https://raw.githubusercontent.com/ocornut/imgui/docking/imgui.h')
-        os.system('curl -o imgui.cpp https://raw.githubusercontent.com/ocornut/imgui/docking/imgui.cpp')
-        os.system('curl -o imconfig.h https://raw.githubusercontent.com/ocornut/imgui/docking/imconfig.h')
-        os.system('curl -o imgui_internal.h https://raw.githubusercontent.com/ocornut/imgui/docking/imgui_internal.h')
-        os.system('curl -o imstb_rectpack.h https://raw.githubusercontent.com/ocornut/imgui/docking/imstb_rectpack.h')
-        os.system('curl -o imstb_textedit.h https://raw.githubusercontent.com/ocornut/imgui/docking/imstb_textedit.h')
-        os.system('curl -o imstb_truetype.h https://raw.githubusercontent.com/ocornut/imgui/docking/imstb_truetype.h')
-        os.system('curl -o imgui_draw.cpp https://raw.githubusercontent.com/ocornut/imgui/docking/imgui_draw.cpp')
-        os.system('curl -o imgui_tables.cpp https://raw.githubusercontent.com/ocornut/imgui/docking/imgui_tables.cpp')
-        os.system('curl -o imgui_widgets.cpp https://raw.githubusercontent.com/ocornut/imgui/docking/imgui_widgets.cpp')
-        os.system('curl -o imgui_impl_dx11.h https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_dx11.h')
-        os.system('curl -o imgui_impl_dx11.cpp https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_dx11.cpp')
-        os.system('curl -o imgui_impl_glfw.h https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_glfw.h')
-        os.system('curl -o imgui_impl_glfw.cpp https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_glfw.cpp')
-        os.system('curl -o imgui_impl_opengl3.h https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_opengl3.h')
-        os.system('curl -o imgui_impl_opengl3.cpp https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_opengl3.cpp')
-        os.system('curl -o imgui_impl_opengl3_loader.h https://raw.githubusercontent.com/ocornut/imgui/docking/backends/imgui_impl_opengl3_loader.h')
+        total_downloads = len(IMGUI_REQUIRED_FILES)
+
+        for i in range(0, total_downloads):
+            filename = IMGUI_REQUIRED_FILES[i][0]
+            url = IMGUI_REQUIRED_FILES[i][1]
+
+            print_progress_bar(i, total_downloads, '  Downloading', 'Complete | {}'.format(filename), length=24)
+            download_web_file(filename, url)
+            print_progress_bar(i + 1, total_downloads, '  Downloading', 'Complete | {}'.format(filename), length=24)
+
+        # Put an empty line
+        print()
 
         # Move back up to ther project root directory
         os.chdir('../../../')
@@ -937,7 +991,19 @@ endif(APPLE)
 
         # Download the GLFW include files
         print('Downloading GLFW files...')
-        os.system('curl -o glfw3.h https://raw.githubusercontent.com/glfw/glfw/master/include/GLFW/glfw3.h')
+        
+        total_downloads = len(GLFW3_REQUIRED_FILES)
+
+        for i in range(0, total_downloads):
+            filename = GLFW3_REQUIRED_FILES[i][0]
+            url = GLFW3_REQUIRED_FILES[i][1]
+
+            print_progress_bar(i, total_downloads, '  Downloading', 'Complete | {}'.format(filename), length=24)
+            download_web_file(filename, url)
+            print_progress_bar(i + 1, total_downloads, '  Downloading', 'Complete | {}'.format(filename), length=24)
+
+        # Put an empty line
+        print()
 
         # Move back up to the
         # project root directory.
@@ -951,8 +1017,20 @@ endif(APPLE)
 
         # Download the app-icon.icns
         # file for macos bundling.
-        print('Download app-icon...')
-        os.system('curl -o app-icon.icns https://raw.githubusercontent.com/FlareCoding/cbuilder/master/app-icon.icns')
+        print('Downloading resources...')
+
+        total_downloads = len(RESOURCE_REQUIRED_FILES)
+
+        for i in range(0, total_downloads):
+            filename = RESOURCE_REQUIRED_FILES[i][0]
+            url = RESOURCE_REQUIRED_FILES[i][1]
+
+            print_progress_bar(i, total_downloads, '  Downloading', 'Complete | {}'.format(filename), length=24)
+            download_web_file(filename, url)
+            print_progress_bar(i + 1, total_downloads, '  Downloading', 'Complete | {}'.format(filename), length=24)
+
+        # Put an empty line
+        print()
 
         # Move back up to the
         # project root directory.
