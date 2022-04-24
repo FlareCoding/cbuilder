@@ -23,7 +23,7 @@ int main()
 }
 '''
 
-GUI_MAIN_CPP_UNIX = '''
+GUI_MAIN_CPP_UNIX = '''#define GL_SILENCE_DEPRECATION
 #include <client/ui/ClientApplication.h>
 #include <client/ui/imgui/imgui.h>
 #include <client/ui/imgui/imgui_impl_glfw.h>
@@ -92,23 +92,13 @@ int main(int, char**)
     ImGui_ImplOpenGL3_Init(glsl_version);
 
     // Load Fonts
-    // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
-    // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
-    // - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
-    // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
-    // - Read 'docs/FONTS.md' for more instructions and details.
-    // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
-    //io.Fonts->AddFontDefault();
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/ProggyTiny.ttf", 10.0f);
-    //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
+    //io.Fonts->AddFontFromFileTTF("path//Roboto-Medium.ttf", 16.0f);
+    //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\Windows\Fonts\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
     //IM_ASSERT(font != NULL);
+    //io.Fonts->AddFont(font);
 
     // Our state
-    bool show_another_window = false;
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    ImVec4 clear_color = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
 
     // Create the client application
     auto client = std::make_unique<client::ui::ClientApplication>();
@@ -130,38 +120,6 @@ int main(int, char**)
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
-
-        // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
-        {{
-            static float f = 0.0f;
-            static int counter = 0;
-
-            ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
-            ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-            ImGui::Checkbox("Another Window", &show_another_window);
-
-            ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-            ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-            if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-                counter++;
-            ImGui::SameLine();
-            ImGui::Text("counter = %d", counter);
-
-            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-            ImGui::End();
-        }}
-
-        // 3. Show another simple window.
-        if (show_another_window)
-        {{
-            ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-            ImGui::Text("Hello from another window!");
-            if (ImGui::Button("Close Me"))
-                show_another_window = false;
-            ImGui::End();
-        }}
 
         // Client UI code
         client->render();
@@ -880,8 +838,21 @@ endif()
             # Gotta keep the spacing clean
             f.write('\n')
 
+            # Add MacOS bundling options
+            f.write('''if (APPLE)
+    set(MACOSX_BUNDLE_ICON_FILE app-icon.icns)
+    set(APP_ICON_PATH ${CMAKE_CURRENT_SOURCE_DIR}/resources/app-icon.icns)
+    set_source_files_properties(${APP_ICON_PATH} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+
+    set(PLATFORM_BUNDLING MACOSX_BUNDLE ${APP_ICON_PATH})
+else()
+    set(PLATFORM_BUNDLING )
+endif()
+
+''')
+
             # Create an executable target
-            f.write('add_executable(\n\t${TARGET_NAME}\n\n')
+            f.write('add_executable(\n\t${TARGET_NAME} ${PLATFORM_BUNDLING}\n\n')
 
             # Add headers and sources to the executable
             for item in headers_and_sources:
@@ -899,17 +870,27 @@ endif()
             f.write('\t${ENTRY_POINT_FILE}\n)\n\n')
 
             # Link appropriate libraries for OSX
+            # and set the correct MACOS_BUNDLE_XXX properties.
             f.write('''if (APPLE)
     find_library(COCOA_LIBRARY Cocoa)
     find_library(OpenGL_LIBRARY OpenGL)
     find_library(IOKIT_LIBRARY IOKit)
     find_library(COREVIDEO_LIBRARY CoreVideo)
+
     SET(EXTRA_LIBS ${COCOA_LIBRARY} ${OpenGL_LIBRARY} ${IOKIT_LIBRARY} ${COREVIDEO_LIBRARY})
+
     target_link_libraries(${PROJECT_NAME} glfw "-framework OpenGL")
     target_link_directories(${PROJECT_NAME} PRIVATE /opt/homebrew/lib)
     target_include_directories(${PROJECT_NAME} PRIVATE /usr/local/include opt/local/include /opt/homebrew/include)
-endif(APPLE)
 
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        MACOSX_BUNDLE True
+        MACOSX_BUNDLE_GUI_IDENTIFIER cpp.app.${PROJECT_NAME}
+        MACOSX_BUNDLE_BUNDLE_NAME ${PROJECT_NAME}
+        MACOSX_BUNDLE_BUNDLE_VERSION "0.1"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "0.1"
+    )
+endif(APPLE)
 ''')
 
     # Sets up the imgui directory folder
@@ -922,7 +903,7 @@ endif(APPLE)
         os.chdir('imgui')
 
         # Download the imgui files
-        print('Download ImGui files...')
+        print('Downloading ImGui files...')
         os.system('curl -o imgui.h https://raw.githubusercontent.com/ocornut/imgui/docking/imgui.h')
         os.system('curl -o imgui.cpp https://raw.githubusercontent.com/ocornut/imgui/docking/imgui.cpp')
         os.system('curl -o imconfig.h https://raw.githubusercontent.com/ocornut/imgui/docking/imconfig.h')
@@ -955,12 +936,27 @@ endif(APPLE)
         os.chdir('GLFW')
 
         # Download the GLFW include files
-        print('Download GLFW files...')
+        print('Downloading GLFW files...')
         os.system('curl -o glfw3.h https://raw.githubusercontent.com/glfw/glfw/master/include/GLFW/glfw3.h')
 
         # Move back up to the
         # project root directory.
         os.chdir('../../')
+
+    # Setup resources directory with app-icon.icns
+    def __setup_resources(self) -> None:
+        # Create the resources directory
+        os.mkdir('resources')
+        os.chdir('resources')
+
+        # Download the app-icon.icns
+        # file for macos bundling.
+        print('Download app-icon...')
+        os.system('curl -o app-icon.icns https://raw.githubusercontent.com/FlareCoding/cbuilder/master/app-icon.icns')
+
+        # Move back up to the
+        # project root directory.
+        os.chdir('..')
 
     # Primary function for processing all
     # the project details and subsystems and
@@ -1007,6 +1003,7 @@ endif(APPLE)
         if self.uses_imgui_ui_module:
             self.__setup_imgui_files()
             self.__setup_glfw_files()
+            self.__setup_resources()
 
         # Generate the main.cpp file according
         # to the project type and platform.
@@ -1107,7 +1104,7 @@ def render_class_table(console, cppclass: CClass) -> None:
     console.print(table)
     console.print()
 
-def show_class_controls(console, cppclass: CClass):
+def show_class_controls(console, cppclass: CClass) -> None:
     try:
         while True:
             render_class_table(console, cppclass)
@@ -1183,7 +1180,7 @@ def show_class_controls(console, cppclass: CClass):
     except KeyboardInterrupt:
         return
 
-def show_system_controls(console, system: CModule):
+def show_system_controls(console, system: CModule) -> None:
     try:
         while True:
             render_system_table(console, system)
@@ -1234,7 +1231,7 @@ def show_system_controls(console, system: CModule):
     except KeyboardInterrupt:
         return
 
-def show_module_controls(console, module: CModule):
+def show_module_controls(console, module: CModule) -> None:
     try:
         while True:
             render_module_table(console, module)
