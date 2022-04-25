@@ -107,7 +107,8 @@ using namespace {0}; // project namespace
 
 static void glfw_error_callback(int error, const char* description)
 {{
-    fprintf(stderr, "Glfw Error %d: %s\\n", error, description);
+    // Handle errors
+    //fprintf(stderr, "Glfw Error %d: %s\\n", error, description);
 }}
 
 int main(int, char**)
@@ -969,8 +970,13 @@ endif()
         MACOSX_BUNDLE_BUNDLE_VERSION "0.1"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "0.1"
     )
+
+elseif (LINUX)
+    target_link_libraries(${TARGET_NAME} GL glfw dl)
+
 elseif(MSVC)
     target_link_libraries(${TARGET_NAME} d3d11.lib)
+    
 endif()
 ''')
 
