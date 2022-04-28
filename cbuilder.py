@@ -475,10 +475,26 @@ add_definitions(-DUNICODE -D_UNICODE)
 
 '''
 
-g_project_name = None
+g_current_project = None
 g_current_module = None
 g_current_system = None
 g_current_cmake_dir = None
+
+# Creates an c++ include statement that
+# includes the module and system path.
+def generate_include_statement(name: str, is_local_path: bool) -> str:
+    for mod in g_current_project.modules:
+        for system in mod.systems:
+            for cppclass in system.classes:
+                if cppclass.name == name:
+                    return '#include <{}/{}/{}.h>'.format(mod.name, system.name, cppclass.name)
+
+    # If no class name is found,
+    # include the raw name provided.
+    if is_local_path is True:
+        return '#include "{}"'.format(name)
+    else:
+        return '#include <{}>'.format(name)
 
 '''
 Structure containing the name and the documentation for a C++ function.
@@ -491,6 +507,16 @@ class CFunction:
         self.description = description
 
 '''
+Structure to hold information about a class dependency,
+whether it's a library file, or a class within a project.
+'''
+class CClassDependency:
+    def __init__(self, name: str, is_local: bool, location: str) -> None:
+        self.name = name
+        self.is_local = is_local
+        self.location = location # 'header' or 'source'
+
+'''
 CClass is a template class for holding C++ project classes within a specific module.
 It is able to hold public and private function names and variable names.
 '''
@@ -501,6 +527,7 @@ class CClass:
         self.private_functions: list[CFunction]  = []
         self.public_variables   = []
         self.private_variables  = []
+        self.dependencies: list[CClassDependency] = []
 
     # Remove the variable given its name
     def remove_variable(self, name: str) -> None:
@@ -527,6 +554,12 @@ class CClass:
             if fn.name == name:
                 self.private_functions.remove(fn)
                 return
+
+    # Remove the class dependency given it's name
+    def remove_dependency(self, name: str) -> None:
+        for dep in self.dependencies:
+            if dep.name == name:
+                self.dependencies.remove(dep)
 
     # Generates the C++ function declaration signature
     def __get_header_function_declaration(self, fn: CFunction) -> str:
@@ -557,7 +590,7 @@ class CClass:
 
     # Generates a C++ header file (.h)
     def __generate_header_file(self) -> None:
-        global g_project_name, g_current_module, g_current_system
+        global g_current_project, g_current_module, g_current_system
 
         # Check to make sure the file doesn't exist already
         if os.path.exists('{}.h'.format(self.name)):
@@ -567,8 +600,15 @@ class CClass:
             # Pragma + includes
             f.write(PRAGMA_ONCE_DEFINITION)
 
+            # Include statements for all dependencies
+            for dep in self.dependencies:
+                if dep.location == 'header':
+                    f.write('{}\n'.format(generate_include_statement(dep.name, dep.is_local)))
+
+            f.write('\n')
+
             # Namespace begin
-            f.write('\nnamespace {}::{}::{}\n{{\n'.format(g_project_name, g_current_module, g_current_system))
+            f.write('\nnamespace {}::{}::{}\n{{\n'.format(g_current_project.name, g_current_module, g_current_system))
 
             # Class begin
             f.write('\tclass {}\n'.format(self.name))
@@ -619,13 +659,21 @@ class CClass:
 
     # Generates a C++ source file (.cpp)
     def __generate_source_file(self) -> None:
-        global g_project_name, g_current_module
+        global g_current_project, g_current_module
 
         with open(self.name + '.cpp', 'w') as f:
+            # Include class header file
             f.write('#include "{}.h"\n\n'.format(self.name))
 
+            # Include statements for all dependencies
+            for dep in self.dependencies:
+                if dep.location == 'source':
+                    f.write('{}\n'.format(generate_include_statement(dep.name, dep.is_local)))
+
+            f.write('\n')
+
             # Namespace begin
-            f.write('namespace {}::{}::{}\n{{\n'.format(g_project_name, g_current_module, g_current_system))
+            f.write('namespace {}::{}::{}\n{{\n'.format(g_current_project.name, g_current_module, g_current_system))
 
             # Create a list of all functions
             all_functions = self.public_functions + self.private_functions
@@ -1073,10 +1121,10 @@ endif()
         if len(self.modules) < 1:
             return            
 
-        global g_project_name
+        global g_current_project
 
         # Set the project name global
-        g_project_name = self.name
+        g_current_project = self
 
         # Get the absolute path (also fixes platform-dependent backslashes on windows)
         target_dir = os.path.abspath(target_dir)
@@ -1219,15 +1267,17 @@ def show_class_controls(console, cppclass: CClass) -> None:
             console.print('[2] Remove function')
             console.print('[3] Add variable')
             console.print('[4] Remove variable')
-            console.print('[5] Edit class name')
-            console.print('[6] Return to system menu')
+            console.print('[5] Add dependency')
+            console.print('[6] Remove dependency')
+            console.print('[7] Edit class name')
+            console.print('[8] Return to system menu')
             console.print()
 
             combined_functions_list = cppclass.public_functions + cppclass.private_functions
             combined_variables_list = cppclass.public_variables + cppclass.private_variables
 
             user_cmd = int(Prompt.ask('Select option', choices=['1','2','3','4','5','6']))
-            if user_cmd == 6: # return to project menu
+            if user_cmd == 8: # return to project menu
                return
 
             # Adding a function to the class
@@ -1275,8 +1325,23 @@ def show_class_controls(console, cppclass: CClass) -> None:
                 var_name = Prompt.ask('', choices=[var.split()[1] for var in combined_variables_list])
                 cppclass.remove_variable(var_name)
 
+            # Add dependency
+            if user_cmd == 5:
+                dep_name = Prompt.ask('Name')
+                dep_location = Prompt.ask('Location', choices=['header','source'], default='header')
+                is_local = Confirm.ask('Should use local path?')
+
+                if dep_name not in cppclass.dependencies and len(dep_name) > 0:
+                    cppclass.dependencies.append(CClassDependency(dep_name, is_local, dep_location))
+
+            # Remove dependency
+            elif user_cmd == 6 and len(cppclass.dependencies) > 0:
+                console.print('Enter dependency name', style='cyan', end='')
+                dep_name = Prompt.ask('', choices=[dep.name for dep in cppclass.dependencies])
+                cppclass.remove_dependency(dep_name)
+
             # Edit module name
-            elif user_cmd == 5:
+            elif user_cmd == 7:
                 console.print('Enter new class name', style='cyan', end='')
                 new_name = Prompt.ask('').replace(' ', '_')
                 new_name = re.sub(r'[^a-zA-Z0-9_]', '', new_name) # remove all the non-alphanumeric characters
@@ -1490,6 +1555,9 @@ def main() -> None:
 
         # Class --> ClientApplication
         client_app = CClass('ClientApplication')
+
+        # Add ImGui dependency to the client application class
+        client_app.dependencies.append(CClassDependency('imgui/imgui.h', True, 'source'))
         
         # Main public functionality of
         # the client application class.
